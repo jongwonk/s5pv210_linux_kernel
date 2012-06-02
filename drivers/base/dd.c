@@ -285,6 +285,7 @@ probe_failed:
 	dev->driver = NULL;
 
 	if (ret == -EPROBE_DEFER) {
+	  
 		/* Driver requested deferred probing */
 		dev_info(dev, "Driver %s requests probe deferral\n", drv->name);
 		driver_deferred_probe_add(dev);

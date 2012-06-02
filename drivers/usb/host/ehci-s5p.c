@@ -26,6 +26,8 @@
 	(EHCI_INSNREG00_ENA_INCR16 | EHCI_INSNREG00_ENA_INCR8 |	\
 	 EHCI_INSNREG00_ENA_INCR4 | EHCI_INSNREG00_ENA_INCRX_ALIGN)
 
+extern void usb_host_phy_init(void);
+
 struct s5p_ehci_hcd {
 	struct device *dev;
 	struct usb_hcd *hcd;
@@ -94,7 +96,7 @@ static int __devinit s5p_ehci_probe(struct platform_device *pdev)
 	}
 
 	s5p_ehci->hcd = hcd;
-	s5p_ehci->clk = clk_get(&pdev->dev, "usbhost");
+	s5p_ehci->clk = clk_get(&pdev->dev, "usb-host");
 
 	if (IS_ERR(s5p_ehci->clk)) {
 		dev_err(&pdev->dev, "Failed to get usbhost clock\n");
@@ -130,13 +132,16 @@ static int __devinit s5p_ehci_probe(struct platform_device *pdev)
 	}
 
 	if (pdata->phy_init)
-		pdata->phy_init(pdev, S5P_USB_PHY_HOST);
-
+	{
+		pdata->phy_init(pdev, S5P_USB_PHY_DEVICE/*S5P_USB_PHY_HOST*/);
+	}
+	
 	ehci = hcd_to_ehci(hcd);
 	ehci->caps = hcd->regs;
-	ehci->regs = hcd->regs +
-		HC_LENGTH(ehci, readl(&ehci->caps->hc_capbase));
+	ehci->regs = hcd->regs + HC_LENGTH(ehci, readl(&ehci->caps->hc_capbase)); //USBCMD:USBOPBASE+0x0
 
+	ehci->hcs_params = readl(&ehci->caps->hcs_params);
+	
 	/* DMA burst Enable */
 	writel(EHCI_INSNREG00_ENABLE_DMA_BURST, EHCI_INSNREG00(hcd->regs));
 
@@ -145,7 +150,7 @@ static int __devinit s5p_ehci_probe(struct platform_device *pdev)
 
 	/* cache this readonly data; minimize chip reads */
 	ehci->hcs_params = readl(&ehci->caps->hcs_params);
-
+	
 	ehci_reset(ehci);
 
 	err = usb_add_hcd(hcd, irq, IRQF_SHARED);

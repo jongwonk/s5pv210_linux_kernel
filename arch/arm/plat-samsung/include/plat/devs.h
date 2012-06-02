@@ -75,6 +75,18 @@ extern struct platform_device s3c_device_usb_hsotg;
 extern struct platform_device s3c_device_usb_hsudc;
 extern struct platform_device s3c_device_wdt;
 
+#ifdef CONFIG_S5P_DEV_USB_EHCI
+extern struct platform_device s5p_device_ehci;
+#endif
+
+#ifdef CONFIG_S3C_DEV_USB_HSOTG
+extern struct platform_device s3c_device_usb_hsotg;
+#endif /* CONFIG_S3C_DEV_USB_HSOTG */
+
+#ifdef CONFIG_S3C_DEV_USB_HOST
+extern struct platform_device s3c_device_ohci;
+#endif
+
 extern struct platform_device s5p_device_ehci;
 extern struct platform_device s5p_device_fimc0;
 extern struct platform_device s5p_device_fimc1;

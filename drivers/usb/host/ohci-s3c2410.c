@@ -475,6 +475,7 @@ static const struct hc_driver ohci_s3c2410_hc_driver = {
 
 static int __devinit ohci_hcd_s3c2410_drv_probe(struct platform_device *pdev)
 {
+	printk("\n\tohci\n\n");
 	return usb_hcd_s3c2410_probe(&ohci_s3c2410_hc_driver, pdev);
 }
 

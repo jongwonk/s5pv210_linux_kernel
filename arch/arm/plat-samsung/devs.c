@@ -1354,10 +1354,10 @@ struct platform_device s5p_device_mixer = {
 
 /* USB */
 
-#ifdef CONFIG_S3C_DEV_USB_HOST
+
 static struct resource s3c_usb_resource[] = {
-	[0] = DEFINE_RES_MEM(S3C_PA_USBHOST, SZ_256),
-	[1] = DEFINE_RES_IRQ(IRQ_USBH),
+	[0] = DEFINE_RES_MEM(S5P_PA_USB_OHCI, S5P_SZ_USB_OHCI),
+	[1] = DEFINE_RES_IRQ(IRQ_UHOST/*IRQ_USBH*/),
 };
 
 struct platform_device s3c_device_ohci = {
@@ -1385,7 +1385,7 @@ void __init s3c_ohci_set_platdata(struct s3c2410_hcd_info *info)
 	s3c_set_platdata(info, sizeof(struct s3c2410_hcd_info),
 			 &s3c_device_ohci);
 }
-#endif /* CONFIG_S3C_DEV_USB_HOST */
+
 
 /* USB Device (Gadget) */
 
@@ -1410,10 +1410,9 @@ void __init s3c24xx_udc_set_platdata(struct s3c2410_udc_mach_info *pd)
 
 /* USB EHCI Host Controller */
 
-#ifdef CONFIG_S5P_DEV_USB_EHCI
 static struct resource s5p_ehci_resource[] = {
-	[0] = DEFINE_RES_MEM(S5P_PA_EHCI, SZ_256),
-	[1] = DEFINE_RES_IRQ(IRQ_USB_HOST),
+	[0] = DEFINE_RES_MEM(S5P_PA_USB_EHCI/*S5P_PA_EHCI*/, S5P_SZ_USB_EHCI),
+	[1] = DEFINE_RES_IRQ(IRQ_UHOST/*IRQ_USB_HOST*/),
 };
 
 struct platform_device s5p_device_ehci = {
@@ -1435,11 +1434,15 @@ void __init s5p_ehci_set_platdata(struct s5p_ehci_platdata *pd)
 			&s5p_device_ehci);
 
 	if (!npd->phy_init)
+	{
 		npd->phy_init = s5p_usb_phy_init;
+	}
 	if (!npd->phy_exit)
+	{
 		npd->phy_exit = s5p_usb_phy_exit;
+	}
 }
-#endif /* CONFIG_S5P_DEV_USB_EHCI */
+
 
 /* USB HSOTG */
 

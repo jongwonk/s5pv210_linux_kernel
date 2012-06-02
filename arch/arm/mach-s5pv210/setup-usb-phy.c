@@ -21,44 +21,21 @@
 static int s5pv210_usb_otgphy_init(struct platform_device *pdev)
 {
 	struct clk *xusbxti;
-	u32 phyclk;
 
-	writel(readl(S5PV210_USB_PHY_CON) | S5PV210_USB_PHY0_EN,
-			S5PV210_USB_PHY_CON);
+	xusbxti = clk_get(&pdev->dev, "otg");
+	clk_enable(xusbxti);
 
-	/* set clock frequency for PLL */
-	phyclk = readl(S3C_PHYCLK) & ~S3C_PHYCLK_CLKSEL_MASK;
-
-	xusbxti = clk_get(&pdev->dev, "xusbxti");
-	if (xusbxti && !IS_ERR(xusbxti)) {
-		switch (clk_get_rate(xusbxti)) {
-		case 12 * MHZ:
-			phyclk |= S3C_PHYCLK_CLKSEL_12M;
-			break;
-		case 24 * MHZ:
-			phyclk |= S3C_PHYCLK_CLKSEL_24M;
-			break;
-		default:
-		case 48 * MHZ:
-			/* default reference clock */
-			break;
-		}
-		clk_put(xusbxti);
-	}
-
-	/* TODO: select external clock/oscillator */
-	writel(phyclk | S3C_PHYCLK_CLK_FORCE, S3C_PHYCLK);
-
-	/* set to normal OTG PHY */
-	writel((readl(S3C_PHYPWR) & ~S3C_PHYPWR_NORMAL_MASK), S3C_PHYPWR);
+	writel(readl(S5PV210_USB_PHY_CON) | S5PV210_USB_PHY1_EN, S5PV210_USB_PHY_CON);
+	
+	writel((readl(S3C_PHYPWR)&~(0x1<<7)&~(0x1<<6))|(0x1<<8)|(0x1<<5) , S3C_PHYPWR);
 	mdelay(1);
-
-	/* reset OTG PHY and Link */
-	writel(S3C_RSTCON_PHY | S3C_RSTCON_HCLK | S3C_RSTCON_PHYCLK,
-			S3C_RSTCON);
-	udelay(20);	/* at-least 10uS */
-	writel(0, S3C_RSTCON);
-
+	__raw_writel((__raw_readl(S3C_PHYCLK)&~(0x1<<7))|(0x3<<0), S3C_PHYCLK);
+	__raw_writel((__raw_readl(S3C_RSTCON))|(0x1<<4)|(0x1<<3), S3C_RSTCON);
+	udelay(10);
+	
+	__raw_writel(0x0000, S3C_RSTCON);
+	//__raw_writel(__raw_readl(S3C_RSTCON) &~(0x1<<4)&~(0x1<<3), S3C_RSTCON);
+		
 	return 0;
 }
 
@@ -67,7 +44,7 @@ static int s5pv210_usb_otgphy_exit(struct platform_device *pdev)
 	writel((readl(S3C_PHYPWR) | S3C_PHYPWR_ANALOG_POWERDOWN |
 				S3C_PHYPWR_OTG_DISABLE), S3C_PHYPWR);
 
-	writel(readl(S5PV210_USB_PHY_CON) & ~S5PV210_USB_PHY0_EN,
+	writel(readl(S5PV210_USB_PHY_CON) & ~S5PV210_USB_PHY1_EN,
 			S5PV210_USB_PHY_CON);
 
 	return 0;
@@ -76,8 +53,10 @@ static int s5pv210_usb_otgphy_exit(struct platform_device *pdev)
 int s5p_usb_phy_init(struct platform_device *pdev, int type)
 {
 	if (type == S5P_USB_PHY_DEVICE)
-		return s5pv210_usb_otgphy_init(pdev);
-
+	{
+	  return s5pv210_usb_otgphy_init(pdev);
+	}
+	
 	return -EINVAL;
 }
 

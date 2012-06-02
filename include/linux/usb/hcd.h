@@ -22,6 +22,7 @@
 #ifdef __KERNEL__
 
 #include <linux/rwsem.h>
+#include <linux/usb.h>
 
 #define MAX_TOPO_LEVEL		6
 

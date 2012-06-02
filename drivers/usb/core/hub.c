@@ -196,9 +196,13 @@ static int get_hub_descriptor(struct usb_device *hdev, void *data)
 			USB_REQ_GET_DESCRIPTOR, USB_DIR_IN | USB_RT_HUB,
 			dtype << 8, 0, data, size,
 			USB_CTRL_GET_TIMEOUT);
+			
 		if (ret >= (USB_DT_HUB_NONVAR_SIZE + 2))
-			return ret;
+		{
+		    return ret;
+		}
 	}
+	
 	return -EINVAL;
 }
 
@@ -1009,7 +1013,7 @@ static int hub_configure(struct usb_hub *hub,
 	unsigned int pipe;
 	int maxp, ret;
 	char *message = "out of memory";
-
+	
 	hub->buffer = kmalloc(sizeof(*hub->buffer), GFP_KERNEL);
 	if (!hub->buffer) {
 		ret = -ENOMEM;
@@ -1034,6 +1038,15 @@ static int hub_configure(struct usb_hub *hub,
 	 * but the hub can/will return fewer bytes here.
 	 */
 	ret = get_hub_descriptor(hdev, hub->descriptor);
+	
+/*
+	printk("\nbDescLength: %d\n",hub->descriptor->bDescLength);
+ 	printk("bDescriptorType: %d\n",hub->descriptor->bDescriptorType);
+ 	printk("bNbrPorts: %d\n",hub->descriptor->bNbrPorts);
+ 	printk("wHubCharacteristics: %d\n",hub->descriptor->wHubCharacteristics);
+ 	printk("bPwrOn2PwrGood: %d\n",hub->descriptor->bPwrOn2PwrGood);
+ 	printk("bHubContrCurrent: %d\n\n",hub->descriptor->bHubContrCurrent);	
+*/	
 	if (ret < 0) {
 		message = "can't read hub descriptor";
 		goto fail;
@@ -1044,8 +1057,7 @@ static int hub_configure(struct usb_hub *hub,
 	}
 
 	hdev->maxchild = hub->descriptor->bNbrPorts;
-	dev_info (hub_dev, "%d port%s detected\n", hdev->maxchild,
-		(hdev->maxchild == 1) ? "" : "s");
+	dev_info (hub_dev, "%d port(s) detected\n", hdev->maxchild);
 
 	hdev->children = kzalloc(hdev->maxchild *
 				sizeof(struct usb_device *), GFP_KERNEL);
@@ -1379,8 +1391,10 @@ descriptor_error:
 	intf->needs_remote_wakeup = 1;
 
 	if (hdev->speed == USB_SPEED_HIGH)
+	{
 		highspeed_hubs++;
-
+	}
+	
 	if (hub_configure(hub, endpoint) >= 0)
 		return 0;
 

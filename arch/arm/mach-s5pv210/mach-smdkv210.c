@@ -46,6 +46,9 @@
 #include <plat/backlight.h>
 #include <plat/regs-fb-v4.h>
 #include <plat/mfc.h>
+#include <plat/ehci.h>
+#include <plat/usb-control.h>
+
 
 #include <mach/regs-gpio.h>
 #include "common.h"
@@ -342,6 +345,9 @@ static struct platform_device *smdkv210_devices[] __initdata = {
 	&s3c_device_i2c1,
 	&s3c_device_i2c2,
 
+	&s5p_device_ehci,
+	&s3c_device_ohci,
+	
 	&s3c_device_wdt,
 	&s5p_device_fimc0,
 	&s5p_device_fimc1,
@@ -359,6 +365,7 @@ static struct platform_device *smdkv210_devices[] __initdata = {
 	&s3c_device_fb,
 	&s3c_device_spi_gpio,
 	&aesop_device_gpiokeys,
+	
 };
 
 static void __init s5pv210_smc911x_set(void)
@@ -444,6 +451,26 @@ static void __init smdkv210_reserve(void)
 	s5p_mfc_reserve_mem(0x43000000, 8 << 20, 0x51000000, 8 << 20);
 }
 
+
+/* USB EHCI */
+static struct s5p_ehci_platdata aesopv210_ehci_pdata;
+
+static void __init aesopv210_ehci_init(void)
+{
+	struct s5p_ehci_platdata *pdata = &aesopv210_ehci_pdata;
+
+	s5p_ehci_set_platdata(pdata);
+}
+
+static struct s3c2410_hcd_info hcd_info;
+
+static void __init aesopv210_ohci_init(void)
+{
+	struct s3c2410_hcd_info *pdata = &hcd_info;
+
+	s3c_ohci_set_platdata(pdata);
+}
+
 static void __init smdkv210_machine_init(void)
 {
 	  
@@ -484,6 +511,9 @@ static void __init smdkv210_machine_init(void)
 	s3c_fb_set_platdata(&smdkv210_lcd0_pdata);
 
 	samsung_bl_set(&smdkv210_bl_gpio_info, &smdkv210_bl_data);
+
+	aesopv210_ehci_init();
+	aesopv210_ohci_init();
 
 	platform_add_devices(smdkv210_devices, ARRAY_SIZE(smdkv210_devices));
 	

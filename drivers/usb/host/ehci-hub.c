@@ -60,6 +60,9 @@ static void ehci_handover_companion_ports(struct ehci_hcd *ehci)
 	msleep(20);
 
 	port = HCS_N_PORTS(ehci->hcs_params);
+	
+	printk("DEBUG: port# : %d\n",port);
+	
 	while (port--) {
 		if (test_bit(port, &ehci->owned_ports)) {
 			reg = &ehci->regs->port_status[port];
@@ -782,8 +785,7 @@ static int ehci_hub_control (
 		ehci_readl(ehci, &ehci->regs->command);	/* unblock posted write */
 		break;
 	case GetHubDescriptor:
-		ehci_hub_descriptor (ehci, (struct usb_hub_descriptor *)
-			buf);
+		ehci_hub_descriptor (ehci, (struct usb_hub_descriptor *)buf);
 		break;
 	case GetHubStatus:
 		/* no hub-wide feature/status flags */
