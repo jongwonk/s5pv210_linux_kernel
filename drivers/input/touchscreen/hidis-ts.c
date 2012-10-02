@@ -83,27 +83,6 @@ wait_queue_head_t idle_wait;
 static struct task_struct *kidle_task;
 
 /* Touch Screen Private Data */
-static struct hidis_priv2
-{
-	struct delayed_work	task_work;
-	struct i2c_client 	*i2c_client;
-	struct i2c_driver 	hidis_i2c_driver;
-	struct s3c2410ts 	*ts;
-	struct timer_list	pwn_down_check_timer;
-
-	long ts_xp_old;
-	long ts_yp_old;
-
-	unsigned char touch_irq_flag;
-	unsigned char touch_ready_flag;
-	unsigned int interval;
-	unsigned int pen_down;
-//	unsigned int pen_downed;
-//	unsigned long jiffies_old;
-
-} *p_hidis_priv2;
-
-
 static struct hidis_priv
 {
 	struct delayed_work	task_work;
