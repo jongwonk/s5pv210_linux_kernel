@@ -27,7 +27,6 @@
 #include <linux/delay.h>
 #include <linux/pm.h>
 #include <linux/i2c.h>
-//#include <linux/i2c-id.h>
 #include <linux/slab.h>
 #include <linux/string.h>
 #include <linux/platform_device.h>
@@ -79,7 +78,9 @@
 #define S5PV210_GPH1DAT S5P_VA_GPIO+(0xC24)
 
 /* Defined for use k_thread */ 
-wait_queue_head_t idle_wait;
+static wait_queue_head_t idle_wait;
+static int wake_up_work = 0;
+
 static struct task_struct *kidle_task;
 
 /* Touch Screen Private Data */
@@ -109,6 +110,7 @@ static struct hidis_priv
 	unsigned char touch_ready_flag;
 	unsigned int interval;
 	unsigned int pen_down;
+	spinlock_t lock;
 
 } *p_hidis_priv;
 
@@ -149,6 +151,7 @@ extern suspend_state_t get_suspend_state(void);
  */
 static void hidis_i2c_read_data_position(void)
 {
+	unsigned long flags;
 	long i,j;
 	unsigned char x_pos_lsb, x_y_pos_msb, y_pos_lsb;
 	unsigned char x_pos_msb, y_pos_msb;
@@ -170,7 +173,7 @@ static void hidis_i2c_read_data_position(void)
 
 	p_hidis_priv->xp = (unsigned long)((x_pos_msb << 8) | (x_pos_lsb & 0x00ff));
 	p_hidis_priv->yp = (unsigned long)((y_pos_msb << 8) | (y_pos_lsb & 0x00ff));
-
+	
 	i = (x_pos_msb << 8) | (x_pos_lsb & 0xff);
         j = (y_pos_msb << 8) | (y_pos_lsb & 0xff);
 
@@ -182,15 +185,19 @@ static void hidis_i2c_read_data_position(void)
 static void hidis_touch_report_position(void)
 {
 	//struct s3c2410ts *ts = hidis_priv_get_s3c_ts_dev(p_hidis_priv);
-
+	unsigned long flags;
+	
 	if((p_hidis_priv->xp > 0) && (p_hidis_priv->yp > 0) &&
 		(p_hidis_priv->xp <= HIDIS_X_RESOLUTION) && (p_hidis_priv->yp <= HIDIS_Y_RESOLUTION)) {
 			input_report_abs(p_hidis_priv->input, ABS_X, p_hidis_priv->xp);
 			input_report_abs(p_hidis_priv->input, ABS_Y, p_hidis_priv->yp);
 			input_report_key(p_hidis_priv->input, BTN_TOUCH, 1);
 			input_report_abs(p_hidis_priv->input, ABS_PRESSURE, 1);
+			
 			p_hidis_priv->ts_xp_old = p_hidis_priv->xp;
 			p_hidis_priv->ts_yp_old = p_hidis_priv->yp;
+			
+			// printk("X:%d,Y:%d\n",p_hidis_priv->xp,p_hidis_priv->yp);
 	}
 	else {
 		p_hidis_priv->xp = 0;
@@ -204,15 +211,22 @@ int thread_touch_report_position(void *kthread)
 {
 	unsigned long flags;
 	unsigned int ret;
-
+	unsigned int pen_down;
+	
 	struct i2c_client *client = p_hidis_priv->i2c_client; //hidis_priv_get_i2c_client(p_hidis_priv);
-
+	
+		
+	
 	init_waitqueue_head(&idle_wait);
 	
 	dev_info(&client->dev, "%s : Touch Report thread Initialized.\n", __func__);	
 	
 	do {
-		if(p_hidis_priv->pen_down) {
+	    spin_lock_irqsave(&p_hidis_priv->lock,flags);
+	     pen_down = p_hidis_priv->pen_down;
+	    spin_unlock_irqrestore(&p_hidis_priv->lock,flags);
+	
+		if(pen_down) {
 			dev_dbg(&client->dev, "%s : Touch Report thread : pen-down\n", __func__);	
 			
 			
@@ -222,15 +236,24 @@ int thread_touch_report_position(void *kthread)
 				dev_dbg(&client->dev, "%s : Homing routine Fatal kernel error or EXIT to run.\n", __func__);	
 			}
 			else {
-				local_irq_save(flags);
-				hidis_i2c_read_data_position();
-				hidis_touch_report_position();
-				local_irq_restore(flags);		
+				
+			    spin_lock_irqsave(&p_hidis_priv->lock,flags);
+			     pen_down = p_hidis_priv->pen_down;
+			    spin_unlock_irqrestore(&p_hidis_priv->lock,flags);				
+	    
+	    			
+			// local_irq_save(flags);
+			    if(pen_down)	
+			    {
+			      hidis_i2c_read_data_position();
+			      hidis_touch_report_position();
+			    }
+			// local_irq_restore(flags);		
 			}				
 		}
 		else {
-			dev_dbg(&client->dev, "%s : Touch Report thread : Pen-up\n", __func__);
-			interruptible_sleep_on(&idle_wait);	
+			wait_event_interruptible(idle_wait,(wake_up_work!=0));
+			wake_up_work = 0;
 		}
 		
 	} while (!kthread_should_stop());
@@ -242,19 +265,23 @@ int thread_touch_report_position(void *kthread)
 static irqreturn_t hidis_touch_isr(int irq, void *dev_id)
 {
 	struct i2c_client *client = p_hidis_priv->i2c_client;
-	
+	unsigned long flags;
 	unsigned int ret_val;
 
 	ret_val = readl(S5PV210_GPH1DAT) & (0x1 << 3);
+	spin_lock_irqsave(&p_hidis_priv->lock,flags);
 	p_hidis_priv->pen_down = (ret_val >> 3) & 0x1;
+	spin_unlock_irqrestore(&p_hidis_priv->lock,flags);
 
 	if(p_hidis_priv->pen_down) {		/* Touch Pen Down */
 		dev_dbg(&client->dev, "%s : Touch pen-down IRQ Occured - %x\n", __func__, p_hidis_priv->pen_down);
+		
+		wake_up_work = 1;
 		wake_up_interruptible(&idle_wait);
 	}
 	else {							/* Touch Pen Up */
 		dev_dbg(&client->dev, "%s : Touch pen-up IRQ Occured - %x\n", __func__, p_hidis_priv->pen_down);
-
+/*
 		input_report_abs(p_hidis_priv->input, ABS_X, p_hidis_priv->ts_xp_old);
 		input_report_abs(p_hidis_priv->input, ABS_Y, p_hidis_priv->ts_yp_old);
 		input_report_key(p_hidis_priv->input, BTN_TOUCH, 0);
@@ -263,6 +290,7 @@ static irqreturn_t hidis_touch_isr(int irq, void *dev_id)
 
 		p_hidis_priv->xp = 0;
 		p_hidis_priv->yp = 0;
+*/		
 	} 
 
 	return IRQ_HANDLED;	
@@ -336,6 +364,7 @@ static int __devinit hidis_i2c_probe(struct i2c_client *client, const struct i2c
 
 	p_hidis_priv->i2c_client = client;
 
+	spin_lock_init(&p_hidis_priv->lock);
 	ret = request_irq(HIDIS_IRQ_NUM, hidis_touch_isr, IRQ_TYPE_EDGE_BOTH, "hidis-touch", NULL);
 	
 	if (ret) {
