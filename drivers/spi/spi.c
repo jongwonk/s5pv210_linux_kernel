@@ -87,9 +87,11 @@ static int spi_match_device(struct device *dev, struct device_driver *drv)
 	const struct spi_device	*spi = to_spi_device(dev);
 	const struct spi_driver	*sdrv = to_spi_driver(drv);
 
+#ifdef CONFIG_OF_SPI
 	/* Attempt an OF style match */
 	if (of_driver_match_device(dev, drv))
 		return 1;
+#endif
 
 	if (sdrv->id_table)
 		return !!spi_match_id(sdrv->id_table, spi);
